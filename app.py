@@ -81,17 +81,11 @@ async def load_models_and_nltk():
         
         if not os.path.exists(TFIDF_PATH) or not os.path.exists(LOGREG_PATH):
              raise FileNotFoundError("Misinformation model files not found.")
-        models['misinformation_vectorizer'] = joblib.load(TFIDF_PATH)
-        models['misinformation_classifier'] = joblib.load(LOGREG_PATH)
-        models['hate_speech_vectorizer'] = TfidfVectorizer()
-        models['hate_speech_classifier'] = LinearSVC(C=1.0)
-        
-        X_dummy = ["i hate you", "you are a fool", "this is great", "I love a good movie", "I hate that group"]
-        y_dummy = [0, 1, 2, 2, 0]
-        
-        X_vectorized = models['hate_speech_vectorizer'].fit_transform(X_dummy)
-        models['hate_speech_classifier'].fit(X_vectorized, y_dummy)
+        # Load Hate Speech Model
+        hate_vectorizer, hate_classifier = joblib.load(os.path.join(MODEL_DIR, "Hatespeech_XGBoostmodel.pkl"))
 
+        models["hate_speech_vectorizer"] = hate_vectorizer
+        models["hate_speech_classifier"] = hate_classifier
     except FileNotFoundError as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
@@ -103,28 +97,37 @@ async def load_models_and_nltk():
 @app.post("/api/hate-speech")
 async def predict_hate_speech(data: TextIn):
     try:
-        vectorized_text = models['hate_speech_vectorizer'].transform([data.text])
-        prediction_label = models['hate_speech_classifier'].predict(vectorized_text)[0]
-        
-        # Access the specific confidence score for the predicted label
-        confidence_scores = models['hate_speech_classifier'].decision_function(vectorized_text)[0]
-        confidence_score = confidence_scores[prediction_label]
+        # Preprocess the text
+        cleaned_text = preprocess_text(data.text)
 
-        if prediction_label == 0:
+        # Convert to TF-IDF
+        vectorized_text = models["hate_speech_vectorizer"].transform([cleaned_text])
+
+        # Predict
+        prediction = models["hate_speech_classifier"].predict(vectorized_text)[0]
+
+        # Decision scores for all 3 classes
+        decision_scores = models["hate_speech_classifier"].decision_function(vectorized_text)[0]
+
+        # Confidence for predicted class
+        confidence = float(abs(decision_scores[prediction]))
+
+        if prediction == 0:
             label = "Hate Speech"
-            explanation = "The model detected patterns of hate speech. This is a severe flag."
-        elif prediction_label == 1:
+            explanation = "The model detected patterns of hate speech."
+        elif prediction == 1:
             label = "Offensive Language"
-            explanation = "The model found language that is offensive but not hate speech."
+            explanation = "The model detected offensive language."
         else:
             label = "Neither"
-            explanation = "The content is safe and does not contain hate speech or offensive language."
+            explanation = "The content appears safe."
 
         return {
             "prediction": label,
-            "confidence": float(abs(confidence_score)),
+            "confidence": confidence,
             "explanation": explanation
         }
+
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
