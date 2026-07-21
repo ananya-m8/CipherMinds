@@ -82,7 +82,7 @@ async def load_models_and_nltk():
         if not os.path.exists(TFIDF_PATH) or not os.path.exists(LOGREG_PATH):
              raise FileNotFoundError("Misinformation model files not found.")
         # Load Hate Speech Model
-        hate_vectorizer, hate_classifier = joblib.load(os.path.join(MODEL_DIR, "Hatespeech_XGBoostmodel.pkl"))
+        hate_vectorizer, hate_classifier = joblib.load(os.path.join(MODEL_DIR, "Hatespeech_SVMmodel.pkl"))
 
         models["hate_speech_vectorizer"] = hate_vectorizer
         models["hate_speech_classifier"] = hate_classifier
@@ -153,4 +153,3 @@ async def predict_misinformation(data: TextIn):
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
-
