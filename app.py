@@ -96,6 +96,12 @@ async def load_models_and_nltk():
 
         models["hate_speech_vectorizer"] = hate_vectorizer
         models["hate_speech_classifier"] = hate_classifier
+        # Load Misinformation Model
+        misinformation_vectorizer = joblib.load(TFIDF_PATH)
+        misinformation_classifier = joblib.load(LOGREG_PATH)
+
+        models["misinformation_vectorizer"] = misinformation_vectorizer
+        models["misinformation_classifier"] = misinformation_classifier
     except FileNotFoundError as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
@@ -120,7 +126,12 @@ async def predict_hate_speech(data: TextIn):
         decision_scores = models["hate_speech_classifier"].decision_function(vectorized_text)[0]
 
         # Confidence for predicted class
-        confidence = float(abs(decision_scores[prediction]))
+
+        # Decision score of the predicted class
+        score = decision_scores[prediction]
+
+        # Convert to a pseudo-confidence (0 to 1)
+        confidence = float(1 / (1 + np.exp(-score)))
 
         if prediction == 0:
             label = "Hate Speech"
