@@ -17,6 +17,16 @@ from sklearn.linear_model import SGDClassifier
 import warnings
 import traceback
 
+try:
+    nltk.data.find("tokenizers/punkt")
+except LookupError:
+    nltk.download("punkt")
+
+try:
+    nltk.data.find("tokenizers/punkt_tab")
+except LookupError:
+    nltk.download("punkt_tab")
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # directory where apps.py is located
 MODEL_DIR = os.path.join(BASE_DIR, "models")
 
